@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Copy the Curve</title>
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --card: #ffffff;
+    --ink: #1d2433;
+    --muted: #5f6675;
+    --line: #e2e0d8;
+    --grid: #ecebe5;
+    --axis: #9aa0ab;
+    --curve: #1f3a5f;
+    --approx: #e8590c;
+    --shade: rgba(232, 89, 12, 0.22);
+    --prev: #9aa0ab;
+    --good: #1f3a5f;
+    --good-bg: #e6edf6;
+    --hint-bg: #fff3e8;
+    --a1: #f2a65a;
+    --a2: #e8590c;
+    --a3: #9c36b5;
+    --btn: #1d2433;
+    --btn-ink: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171d; --card: #1d2129; --ink: #eef0f4; --muted: #a3a9b5; --line: #2d323c;
+      --grid: #252a33; --axis: #5d6472; --curve: #8fb8ff; --approx: #ff8c42;
+      --shade: rgba(255, 140, 66, 0.25); --prev: #6b7280; --good: #cfe0ff; --good-bg: #22324a;
+      --hint-bg: #3a2a1d; --a1: #ffc078; --a2: #ff8c42; --a3: #e599f7; --btn: #eef0f4; --btn-ink: #14171d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171d; --card: #1d2129; --ink: #eef0f4; --muted: #a3a9b5; --line: #2d323c;
+    --grid: #252a33; --axis: #5d6472; --curve: #8fb8ff; --approx: #ff8c42;
+    --shade: rgba(255, 140, 66, 0.25); --prev: #6b7280; --good: #cfe0ff; --good-bg: #22324a;
+    --hint-bg: #3a2a1d; --a1: #ffc078; --a2: #ff8c42; --a3: #e599f7; --btn: #eef0f4; --btn-ink: #14171d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 16px 16px 40px; }
+  .screen { display: none; }
+  .screen.on { display: block; }
+  h1 { font-size: 28px; line-height: 1.15; margin: 24px 0 8px; }
+  h2 { font-size: 20px; line-height: 1.25; margin: 4px 0 6px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  .eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .dots { display: flex; gap: 6px; margin: 4px 0 12px; }
+  .dots span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+  .dots span.done { background: var(--approx); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  canvas { display: block; width: 100%; border-radius: 10px; touch-action: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 5px; }
+  .legend i.box { height: 10px; border: 0; border-radius: 2px; }
+  .current { font-size: 17px; margin: 12px 0 4px; min-height: 28px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+  .opt {
+    appearance: none; border: 1.5px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 12px; padding: 10px 12px; min-height: 56px; font: inherit; font-size: 18px;
+    display: flex; align-items: center; gap: 10px; text-align: left; cursor: pointer; touch-action: manipulation;
+  }
+  .opt b { font-size: 13px; color: var(--muted); width: 16px; flex: none; }
+  .opt.sel { border-color: var(--approx); box-shadow: 0 0 0 2px var(--approx) inset; }
+  .opt.tried { opacity: .6; }
+  .opt.sel.tried { opacity: 1; }
+  .frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; font-size: .85em; line-height: 1.1; margin: 0 2px; }
+  .frac > span + span { border-top: 1.5px solid currentColor; }
+  .stats { display: flex; gap: 8px; margin: 8px 0; }
+  .stat { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  .stat small { display: block; font-size: 12px; color: var(--muted); }
+  .stat strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .fb { border-radius: 12px; padding: 12px; margin: 8px 0; display: none; }
+  .fb.on { display: block; }
+  .fb.hint { background: var(--hint-bg); }
+  .fb.good { background: var(--good-bg); color: var(--good); }
+  .btn {
+    appearance: none; border: 0; background: var(--btn); color: var(--btn-ink); font: inherit; font-weight: 600;
+    font-size: 17px; border-radius: 12px; padding: 14px 18px; width: 100%; cursor: pointer; touch-action: manipulation; margin-top: 8px;
+  }
+  .btn[hidden] { display: none; }
+  ul.prompts { padding-left: 20px; margin: 8px 0 12px; }
+  ul.prompts li { margin-bottom: 6px; }
+  .recap { list-style: none; padding: 0; margin: 8px 0 12px; }
+  .recap li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 17px; }
+  .recap li:last-child { border-bottom: 0; }
+  .recap .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; vertical-align: middle; }
+  .big { font-size: 22px; font-weight: 700; margin: 16px 0 6px; }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- Intro -->
+  <section class="screen on" id="intro">
+    <h1>Copy the curve</h1>
+    <p>Your job: build an expression that copies a mystery curve as closely as you can, near <strong>x = 0</strong>.</p>
+    <p>You'll do it in three stages. Each stage zooms further out.</p>
+    <div class="card" style="margin:16px 0">
+      <p style="margin:0"><strong>Team rules</strong></p>
+      <ul class="prompts" style="margin-bottom:0">
+        <li>One phone per team.</li>
+        <li>Talk it through and <strong>agree before you tap</strong>.</li>
+        <li>The shaded area is the <strong>error</strong>, the gap between the curve and your expression. Make it as small as you can.</li>
+      </ul>
+    </div>
+    <button class="btn" id="start">Start</button>
+  </section>
+
+  <!-- Stage -->
+  <section class="screen" id="stage">
+    <div class="dots" id="dots"><span></span><span></span><span></span><span></span></div>
+    <div class="eyebrow" id="s-eyebrow"></div>
+    <h2 id="s-title"></h2>
+    <p class="muted" id="s-prompt"></p>
+    <div class="card">
+      <canvas id="cv"></canvas>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="current" id="current"></div>
+    <div class="stats">
+      <div class="stat"><small>Error at x = 0</small><strong id="e0">–</strong></div>
+      <div class="stat"><small>Biggest error on screen</small><strong id="emax">–</strong></div>
+    </div>
+    <div class="opts" id="opts"></div>
+    <div class="fb" id="fb"></div>
+    <button class="btn" id="next" hidden>Next stage</button>
+  </section>
+
+  <!-- Final -->
+  <section class="screen" id="final">
+    <div class="dots"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span></div>
+    <div class="eyebrow">Last step</div>
+    <h2>Look back at what you built</h2>
+    <div class="card">
+      <canvas id="cv2"></canvas>
+      <div class="legend" id="legend2"></div>
+    </div>
+    <ul class="recap" id="recap"></ul>
+    <p class="big">What pattern do you spot?</p>
+    <p>Agree on an answer as a team, then tell your facilitator.</p>
+    <ul class="prompts muted">
+      <li>What's the error at x = 0 every time?</li>
+      <li>Where does each new term make the biggest difference?</li>
+      <li>Look at the signs and the numbers in each term. What comes next?</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var f = function (x) { return Math.sin(x) + Math.cos(x); };
+
+  function fr(n, d) { return '<span class="frac"><span>' + n + '</span><span>' + d + '</span></span>'; }
+  var M = "−"; // minus sign
+
+  // Polynomials as coefficient arrays [c0, c1, c2, ...]
+  function evalPoly(c, x) { var s = 0; for (var i = c.length - 1; i >= 0; i--) s = s * x + c[i]; return s; }
+  function addTerm(base, coef, pow) {
+    var c = base.slice(); while (c.length <= pow) c.push(0); c[pow] += coef; return c;
+  }
+
+  var HINT_CENTRE = "Look at x = 0. Is the error still zero there?";
+  var HINT_SIDES = "Check both sides of x = 0. Did one side get better and the other worse?";
+
+  var STAGES = [
+    {
+      eyebrow: "Stage 1 of 3 · Up close",
+      title: "Which straight line fits best?",
+      prompt: "Zoomed right in around x = 0, the curve looks like a straight line.",
+      view: { x: [-0.4, 0.4], y: [0.3, 1.7] },
+      base: null,
+      correct: "B",
+      options: [
+        { id: "A", label: "y = 1", poly: [1], hint: "It touches the curve at x = 0. Is it steep enough?" },
+        { id: "B", label: "y = 1 + x", poly: [1, 1] },
+        { id: "C", label: "y = x", poly: [0, 1], hint: HINT_CENTRE },
+        { id: "D", label: "y = 1 " + M + " x", poly: [1, -1], hint: "It touches the curve at x = 0, but which way does the curve slope?" },
+        { id: "E", label: "y = 1 + " + fr("x", "2"), poly: [1, 0.5], hint: "It touches the curve at x = 0. Is it as steep as the curve?" },
+        { id: "F", label: "y = 2x", poly: [0, 2], hint: HINT_CENTRE }
+      ]
+    },
+    {
+      eyebrow: "Stage 2 of 3 · Zoom out",
+      title: "Add one term to y = 1 + x",
+      prompt: "Further out, the error grows. Pick the term that keeps the error at x = 0 at zero and shrinks it on both sides.",
+      view: { x: [-1.5, 1.5], y: [-1.5, 2.6] },
+      base: [1, 1],
+      baseLabel: "y = 1 + x",
+      correct: "D",
+      options: [
+        { id: "A", label: "+ " + fr("x²", "2"), coef: 0.5, pow: 2, hint: "Right kind of term. Did the error get bigger or smaller?" },
+        { id: "B", label: M + " " + fr("x³", "6"), coef: -1 / 6, pow: 3, hint: HINT_SIDES },
+        { id: "C", label: M + " " + fr("1", "2"), coef: -0.5, pow: 0, hint: HINT_CENTRE },
+        { id: "D", label: M + " " + fr("x²", "2"), coef: -0.5, pow: 2 },
+        { id: "E", label: M + " " + fr("x", "2"), coef: -0.5, pow: 1, hint: "That just changes the slope. " + HINT_SIDES },
+        { id: "F", label: "+ " + fr("x³", "6"), coef: 1 / 6, pow: 3, hint: HINT_SIDES }
+      ]
+    },
+    {
+      eyebrow: "Stage 3 of 3 · Zoom out again",
+      title: "The error is back. Add one more term.",
+      prompt: "Now the right side is too high and the left side is too low. Which term fixes that?",
+      view: { x: [-2.5, 2.5], y: [-3.5, 2.6] },
+      base: [1, 1, -0.5],
+      baseLabel: "y = 1 + x " + M + " " + fr("x²", "2"),
+      correct: "E",
+      options: [
+        { id: "A", label: "+ " + fr("x³", "6"), coef: 1 / 6, pow: 3, hint: "Right kind of term. Did the error get bigger or smaller?" },
+        { id: "B", label: M + " " + fr("x⁴", "24"), coef: -1 / 24, pow: 4, hint: "The right side needs to come down and the left side needs to go up. Does this term do both?" },
+        { id: "C", label: M + " " + fr("x²", "6"), coef: -1 / 6, pow: 2, hint: "The right side needs to come down and the left side needs to go up. Does this term do both?" },
+        { id: "D", label: M + " " + fr("1", "6"), coef: -1 / 6, pow: 0, hint: HINT_CENTRE },
+        { id: "E", label: M + " " + fr("x³", "6"), coef: -1 / 6, pow: 3 },
+        { id: "F", label: "+ " + fr("x⁴", "24"), coef: 1 / 24, pow: 4, hint: "The right side needs to come down and the left side needs to go up. Does this term do both?" }
+      ]
+    }
+  ];
+
+  var FINAL = [
+    { poly: [1, 1], label: "y = 1 + x", color: "--a1" },
+    { poly: [1, 1, -0.5], label: "y = 1 + x " + M + " " + fr("x²", "2"), color: "--a2" },
+    { poly: [1, 1, -0.5, -1 / 6], label: "y = 1 + x " + M + " " + fr("x²", "2") + " " + M + " " + fr("x³", "6"), color: "--a3" }
+  ];
+
+  var state = { stage: 0, choice: null, solved: false, tried: {} };
+
+  function $(id) { return document.getElementById(id); }
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function show(id) {
+    ["intro", "stage", "final"].forEach(function (s) { $(s).classList.toggle("on", s === id); });
+    window.scrollTo(0, 0);
+  }
+
+  function optionPoly(st, o) { return st.base ? addTerm(st.base, o.coef, o.pow) : o.poly; }
+  function optionLabel(st, o) { return st.base ? st.baseLabel + " " + o.label : o.label; }
+
+  function errors(poly, view) {
+    var max = 0, n = 400;
+    for (var i = 0; i <= n; i++) {
+      var x = view.x[0] + (view.x[1] - view.x[0]) * i / n;
+      max = Math.max(max, Math.abs(f(x) - evalPoly(poly, x)));
+    }
+    return { at0: Math.abs(f(0) - evalPoly(poly, 0)), max: max };
+  }
+
+  function niceStep(span) {
+    var raw = span / 6, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+  }
+  function fmtTick(v, step) {
+    var d = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+    var s = v.toFixed(d); if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);
+    return s.replace("-", M);
+  }
+
+  // layers: [{poly, color, width, dash}], shade: {poly, color}
+  function draw(canvas, view, layers, shade) {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth, h = Math.round(Math.min(w * 0.8, window.innerHeight * 0.48));
+    canvas.style.height = h + "px";
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    var X = function (x) { return (x - view.x[0]) / (view.x[1] - view.x[0]) * w; };
+    var Y = function (y) { return h - (y - view.y[0]) / (view.y[1] - view.y[0]) * h; };
+    var clampY = function (y) { var lo = view.y[0] - 10 * (view.y[1] - view.y[0]), hi = view.y[1] + 10 * (view.y[1] - view.y[0]); return Math.max(lo, Math.min(hi, y)); };
+
+    // grid + ticks
+    ctx.font = "11px -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.lineWidth = 1;
+    var sx = niceStep(view.x[1] - view.x[0]), sy = niceStep(view.y[1] - view.y[0]);
+    var x0px = Math.max(0, Math.min(w, X(0))), y0px = Math.max(0, Math.min(h, Y(0)));
+    ctx.fillStyle = css("--muted");
+    for (var gx = Math.ceil(view.x[0] / sx) * sx; gx <= view.x[1] + 1e-9; gx += sx) {
+      ctx.strokeStyle = css("--grid"); ctx.beginPath(); ctx.moveTo(X(gx), 0); ctx.lineTo(X(gx), h); ctx.stroke();
+      if (Math.abs(gx) > 1e-9 && X(gx) > 14 && X(gx) < w - 14) { ctx.textAlign = "center"; ctx.fillText(fmtTick(gx, sx), X(gx), Math.min(h - 4, y0px + 14)); }
+    }
+    for (var gy = Math.ceil(view.y[0] / sy) * sy; gy <= view.y[1] + 1e-9; gy += sy) {
+      ctx.strokeStyle = css("--grid"); ctx.beginPath(); ctx.moveTo(0, Y(gy)); ctx.lineTo(w, Y(gy)); ctx.stroke();
+      if (Math.abs(gy) > 1e-9) { ctx.textAlign = "left"; ctx.fillText(fmtTick(gy, sy), Math.min(w - 28, x0px + 4), Y(gy) - 3); }
+    }
+    ctx.strokeStyle = css("--axis"); ctx.lineWidth = 1.25;
+    ctx.beginPath(); ctx.moveTo(x0px, 0); ctx.lineTo(x0px, h); ctx.moveTo(0, y0px); ctx.lineTo(w, y0px); ctx.stroke();
+
+    var n = 300, i, x;
+    // shaded error
+    if (shade) {
+      ctx.fillStyle = css(shade.color);
+      ctx.beginPath();
+      for (i = 0; i <= n; i++) { x = view.x[0] + (view.x[1] - view.x[0]) * i / n; ctx.lineTo(X(x), Y(clampY(f(x)))); }
+      for (i = n; i >= 0; i--) { x = view.x[0] + (view.x[1] - view.x[0]) * i / n; ctx.lineTo(X(x), Y(clampY(evalPoly(shade.poly, x)))); }
+      ctx.closePath(); ctx.fill();
+    }
+    function curve(fn, color, width, dash) {
+      ctx.strokeStyle = css(color); ctx.lineWidth = width; ctx.setLineDash(dash || []);
+      ctx.lineJoin = "round"; ctx.lineCap = "round";
+      ctx.beginPath();
+      for (var j = 0; j <= n; j++) { var xx = view.x[0] + (view.x[1] - view.x[0]) * j / n; var p = [X(xx), Y(clampY(fn(xx)))]; j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]); }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    curve(f, "--curve", 3.5);
+    layers.forEach(function (l) { curve(function (xx) { return evalPoly(l.poly, xx); }, l.color, l.width || 3, l.dash); });
+    // centre marker
+    ctx.fillStyle = css("--curve"); ctx.beginPath(); ctx.arc(X(0), Y(f(0)), 4, 0, Math.PI * 2); ctx.fill();
+  }
+
+  function fmt(v) { return v < 0.0005 ? "0" : v.toFixed(v < 10 ? 2 : 1); }
+
+  function renderStage() {
+    var st = STAGES[state.stage];
+    $("dots").querySelectorAll("span").forEach(function (d, i) { d.classList.toggle("done", i <= state.stage); });
+    $("s-eyebrow").textContent = st.eyebrow;
+    $("s-title").textContent = st.title;
+    $("s-prompt").textContent = st.prompt;
+
+    var sel = st.options.filter(function (o) { return o.id === state.choice; })[0];
+    var poly = sel ? optionPoly(st, sel) : st.base;
+
+    var layers = [], legend = '<span><i style="border-color:var(--curve)"></i>mystery curve</span>';
+    if (st.base && sel) { layers.push({ poly: st.base, color: "--prev", width: 2, dash: [6, 6] }); legend += '<span><i style="border-color:var(--prev);border-top-style:dashed"></i>before</span>'; }
+    if (poly) { layers.push({ poly: poly, color: sel ? "--approx" : "--prev", width: 3, dash: sel ? null : [6, 6] }); legend += '<span><i style="border-color:' + (sel ? "var(--approx)" : "var(--prev);border-top-style:dashed") + '"></i>' + (sel ? "your choice" : "so far") + '</span>'; }
+    if (poly) legend += '<span><i class="box" style="background:var(--shade)"></i>error</span>';
+    draw($("cv"), st.view, layers, poly ? { poly: poly, color: "--shade" } : null);
+    $("legend").innerHTML = legend;
+
+    $("current").innerHTML = sel ? optionLabel(st, sel) : (st.base ? '<span class="muted">So far: </span>' + st.baseLabel : '<span class="muted">Tap a line below to try it.</span>');
+    if (poly) { var e = errors(poly, st.view); $("e0").textContent = fmt(e.at0); $("emax").textContent = fmt(e.max); }
+    else { $("e0").textContent = "–"; $("emax").textContent = "–"; }
+
+    $("opts").innerHTML = st.options.map(function (o) {
+      var cls = "opt" + (o.id === state.choice ? " sel" : "") + (state.tried[o.id] ? " tried" : "");
+      return '<button class="' + cls + '" data-id="' + o.id + '"><b>' + o.id + '</b><span>' + o.label + '</span></button>';
+    }).join("");
+
+    var fb = $("fb");
+    if (!sel) { fb.className = "fb"; fb.innerHTML = ""; }
+    else if (sel.id === st.correct) { fb.className = "fb on good"; fb.innerHTML = "<strong>That's the best fit.</strong> Before you move on: why do the other options fit worse?"; }
+    else { fb.className = "fb on hint"; fb.innerHTML = "<strong>Not the best fit yet.</strong> " + sel.hint; }
+    $("next").hidden = !state.solved;
+    $("next").textContent = state.stage === STAGES.length - 1 ? "Finish" : "Next stage";
+  }
+
+  function renderFinal() {
+    var view = { x: [-3, 3], y: [-3, 2.6] };
+    draw($("cv2"), view, FINAL.map(function (a) { return { poly: a.poly, color: a.color, width: 2.5 }; }), null);
+    $("legend2").innerHTML = '<span><i style="border-color:var(--curve)"></i>mystery curve</span>' +
+      FINAL.map(function (a, i) { return '<span><i style="border-color:var(' + a.color + ')"></i>stage ' + (i + 1) + '</span>'; }).join("");
+    $("recap").innerHTML = FINAL.map(function (a, i) {
+      return '<li><span class="sw" style="background:var(' + a.color + ')"></span>' + a.label + '</li>';
+    }).join("");
+  }
+
+  $("start").addEventListener("click", function () { state = { stage: 0, choice: null, solved: false, tried: {} }; show("stage"); renderStage(); });
+  $("opts").addEventListener("click", function (ev) {
+    var b = ev.target.closest(".opt"); if (!b) return;
+    var st = STAGES[state.stage];
+    state.choice = b.getAttribute("data-id");
+    state.tried[state.choice] = true;
+    if (state.choice === st.correct) state.solved = true;
+    renderStage();
+  });
+  $("next").addEventListener("click", function () {
+    if (state.stage < STAGES.length - 1) { state = { stage: state.stage + 1, choice: null, solved: false, tried: {} }; show("stage"); renderStage(); }
+    else { show("final"); renderFinal(); }
+  });
+  var rt;
+  window.addEventListener("resize", function () {
+    clearTimeout(rt); rt = setTimeout(function () {
+      if ($("stage").classList.contains("on")) renderStage();
+      if ($("final").classList.contains("on")) renderFinal();
+    }, 100);
+  });
+})();
+</script>
+</body>
+</html>
