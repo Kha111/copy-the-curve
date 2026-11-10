@@ -190,11 +190,10 @@
     },
     {
       eyebrow: "Stage 2 of 3 · Zoom out",
-      title: "Add one term to y = 1 + x",
-      prompt: "Further out, the error grows. Pick the term that keeps the error at x = 0 at zero and shrinks it on both sides.",
+      title: "Add one term to your line",
+      prompt: "We've zoomed out. Add one term to make the shaded error as small as you can.",
       view: { x: [-1.5, 1.5], y: [-1.5, 2.6] },
-      base: [1, 1],
-      baseLabel: "y = 1 + x",
+      addsTerm: true,
       correct: "D",
       options: [
         { id: "A", label: "+ " + fr("x²", "2"), coef: 0.5, pow: 2, hint: "Right kind of term. Did the error get bigger or smaller?" },
@@ -207,11 +206,10 @@
     },
     {
       eyebrow: "Stage 3 of 3 · Zoom out again",
-      title: "The error is back. Add one more term.",
-      prompt: "Now the right side is too high and the left side is too low. Which term fixes that?",
+      title: "Add one more term",
+      prompt: "We've zoomed out again. Add one more term to make the shaded error as small as you can.",
       view: { x: [-2.5, 2.5], y: [-3.5, 2.6] },
-      base: [1, 1, -0.5],
-      baseLabel: "y = 1 + x " + M + " " + fr("x²", "2"),
+      addsTerm: true,
       correct: "E",
       options: [
         { id: "A", label: "+ " + fr("x³", "6"), coef: 1 / 6, pow: 3, hint: "Right kind of term. Did the error get bigger or smaller?" },
@@ -224,13 +222,10 @@
     }
   ];
 
-  var FINAL = [
-    { poly: [1, 1], label: "y = 1 + x", color: "--a1" },
-    { poly: [1, 1, -0.5], label: "y = 1 + x " + M + " " + fr("x²", "2"), color: "--a2" },
-    { poly: [1, 1, -0.5, -1 / 6], label: "y = 1 + x " + M + " " + fr("x²", "2") + " " + M + " " + fr("x³", "6"), color: "--a3" }
-  ];
+  var FINAL_COLORS = ["--a1", "--a2", "--a3"];
 
-  var state = { stage: 0, choice: null, solved: false, tried: {} };
+  // history: the team's own pick from each finished stage, as {poly, label}
+  var state = { stage: 0, choice: null, tried: {}, history: [] };
 
   function $(id) { return document.getElementById(id); }
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -239,8 +234,11 @@
     window.scrollTo(0, 0);
   }
 
-  function optionPoly(st, o) { return st.base ? addTerm(st.base, o.coef, o.pow) : o.poly; }
-  function optionLabel(st, o) { return st.base ? st.baseLabel + " " + o.label : o.label; }
+  function last() { return state.history[state.history.length - 1]; }
+  function baseOf(st) { return st.addsTerm ? last().poly : null; }
+  function baseLabelOf(st) { return st.addsTerm ? last().label : ""; }
+  function optionPoly(st, o) { return st.addsTerm ? addTerm(last().poly, o.coef, o.pow) : o.poly; }
+  function optionLabel(st, o) { return st.addsTerm ? last().label + " " + o.label : o.label; }
 
   function errors(poly, view) {
     var max = 0, n = 400;
@@ -323,16 +321,17 @@
     $("s-prompt").textContent = st.prompt;
 
     var sel = st.options.filter(function (o) { return o.id === state.choice; })[0];
-    var poly = sel ? optionPoly(st, sel) : st.base;
+    var base = baseOf(st);
+    var poly = sel ? optionPoly(st, sel) : base;
 
     var layers = [], legend = '<span><i style="border-color:var(--curve)"></i>mystery curve</span>';
-    if (st.base && sel) { layers.push({ poly: st.base, color: "--prev", width: 2, dash: [6, 6] }); legend += '<span><i style="border-color:var(--prev);border-top-style:dashed"></i>before</span>'; }
+    if (base && sel) { layers.push({ poly: base, color: "--prev", width: 2, dash: [6, 6] }); legend += '<span><i style="border-color:var(--prev);border-top-style:dashed"></i>before</span>'; }
     if (poly) { layers.push({ poly: poly, color: sel ? "--approx" : "--prev", width: 3, dash: sel ? null : [6, 6] }); legend += '<span><i style="border-color:' + (sel ? "var(--approx)" : "var(--prev);border-top-style:dashed") + '"></i>' + (sel ? "your choice" : "so far") + '</span>'; }
     if (poly) legend += '<span><i class="box" style="background:var(--shade)"></i>error</span>';
     draw($("cv"), st.view, layers, poly ? { poly: poly, color: "--shade" } : null);
     $("legend").innerHTML = legend;
 
-    $("current").innerHTML = sel ? optionLabel(st, sel) : (st.base ? '<span class="muted">So far: </span>' + st.baseLabel : '<span class="muted">Tap a line below to try it.</span>');
+    $("current").innerHTML = sel ? optionLabel(st, sel) : (base ? '<span class="muted">So far: </span>' + baseLabelOf(st) : '<span class="muted">Tap a line below to try it.</span>');
     $("opts").innerHTML = st.options.map(function (o) {
       var cls = "opt" + (o.id === state.choice ? " sel" : "") + (state.tried[o.id] ? " tried" : "");
       return '<button class="' + cls + '" data-id="' + o.id + '"><b>' + o.id + '</b><span>' + o.label + '</span></button>';
@@ -344,15 +343,16 @@
 
   function renderFinal() {
     var view = { x: [-3, 3], y: [-3, 2.6] };
-    draw($("cv2"), view, FINAL.map(function (a) { return { poly: a.poly, color: a.color, width: 2.5 }; }), null);
+    var H = state.history;
+    draw($("cv2"), view, H.map(function (a, i) { return { poly: a.poly, color: FINAL_COLORS[i], width: 2.5 }; }), null);
     $("legend2").innerHTML = '<span><i style="border-color:var(--curve)"></i>mystery curve</span>' +
-      FINAL.map(function (a, i) { return '<span><i style="border-color:var(' + a.color + ')"></i>stage ' + (i + 1) + '</span>'; }).join("");
-    $("recap").innerHTML = FINAL.map(function (a, i) {
-      return '<li><span class="sw" style="background:var(' + a.color + ')"></span>' + a.label + '</li>';
+      H.map(function (a, i) { return '<span><i style="border-color:var(' + FINAL_COLORS[i] + ')"></i>stage ' + (i + 1) + '</span>'; }).join("");
+    $("recap").innerHTML = H.map(function (a, i) {
+      return '<li><span class="sw" style="background:var(' + FINAL_COLORS[i] + ')"></span>' + a.label + '</li>';
     }).join("");
   }
 
-  $("start").addEventListener("click", function () { state = { stage: 0, choice: null, solved: false, tried: {} }; show("stage"); renderStage(); });
+  $("start").addEventListener("click", function () { state = { stage: 0, choice: null, tried: {}, history: [] }; show("stage"); renderStage(); });
   $("opts").addEventListener("click", function (ev) {
     var b = ev.target.closest(".opt"); if (!b) return;
     var st = STAGES[state.stage];
@@ -361,7 +361,11 @@
     renderStage();
   });
   $("next").addEventListener("click", function () {
-    if (state.stage < STAGES.length - 1) { state = { stage: state.stage + 1, choice: null, solved: false, tried: {} }; show("stage"); renderStage(); }
+    var st = STAGES[state.stage];
+    var sel = st.options.filter(function (o) { return o.id === state.choice; })[0];
+    if (!sel) return;
+    state.history.push({ poly: optionPoly(st, sel), label: optionLabel(st, sel) });
+    if (state.stage < STAGES.length - 1) { state = { stage: state.stage + 1, choice: null, tried: {}, history: state.history }; show("stage"); renderStage(); }
     else { show("final"); renderFinal(); }
   });
   var rt;
