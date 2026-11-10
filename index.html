@@ -128,12 +128,7 @@
       <div class="legend" id="legend"></div>
     </div>
     <div class="current" id="current"></div>
-    <div class="stats">
-      <div class="stat"><small>Error at x = 0</small><strong id="e0">–</strong></div>
-      <div class="stat"><small>Biggest error on screen</small><strong id="emax">–</strong></div>
-    </div>
     <div class="opts" id="opts"></div>
-    <div class="fb" id="fb"></div>
     <button class="btn" id="next" hidden>Next stage</button>
   </section>
 
@@ -338,19 +333,12 @@
     $("legend").innerHTML = legend;
 
     $("current").innerHTML = sel ? optionLabel(st, sel) : (st.base ? '<span class="muted">So far: </span>' + st.baseLabel : '<span class="muted">Tap a line below to try it.</span>');
-    if (poly) { var e = errors(poly, st.view); $("e0").textContent = fmt(e.at0); $("emax").textContent = fmt(e.max); }
-    else { $("e0").textContent = "–"; $("emax").textContent = "–"; }
-
     $("opts").innerHTML = st.options.map(function (o) {
       var cls = "opt" + (o.id === state.choice ? " sel" : "") + (state.tried[o.id] ? " tried" : "");
       return '<button class="' + cls + '" data-id="' + o.id + '"><b>' + o.id + '</b><span>' + o.label + '</span></button>';
     }).join("");
 
-    var fb = $("fb");
-    if (!sel) { fb.className = "fb"; fb.innerHTML = ""; }
-    else if (sel.id === st.correct) { fb.className = "fb on good"; fb.innerHTML = "<strong>That's the best fit.</strong> Before you move on: why do the other options fit worse?"; }
-    else { fb.className = "fb on hint"; fb.innerHTML = "<strong>Not the best fit yet.</strong> " + sel.hint; }
-    $("next").hidden = !state.solved;
+    $("next").hidden = !state.choice;
     $("next").textContent = state.stage === STAGES.length - 1 ? "Finish" : "Next stage";
   }
 
@@ -370,7 +358,6 @@
     var st = STAGES[state.stage];
     state.choice = b.getAttribute("data-id");
     state.tried[state.choice] = true;
-    if (state.choice === st.correct) state.solved = true;
     renderStage();
   });
   $("next").addEventListener("click", function () {
